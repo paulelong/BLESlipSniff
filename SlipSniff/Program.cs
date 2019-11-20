@@ -139,8 +139,9 @@ ADV_ACCESS_ADDRESS = [0xD6, 0xBE, 0x89, 0x8E]
             Console.WriteLine(" Q - quit");
             Console.WriteLine(" C - Capture Packets");
             Console.WriteLine(" S - Stop the capture");
-            Console.WriteLine(" D - Dump all the packets");
-            Console.WriteLine(" R - Report");
+            Console.WriteLine(" D - Dump all the packets, only use when capture is stopped.");
+            Console.WriteLine(" F - Prompt to type in an address to follow, type in like 1122AABB0099.");
+            Console.WriteLine(" R - Report capture status");
         }
 
         static void CmdMode()
