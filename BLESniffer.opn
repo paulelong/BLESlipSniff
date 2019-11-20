@@ -1,0 +1,113 @@
+protocol BLESniffer;
+
+using BLESniffRaw;
+using Utility;
+using Diagnostics;
+
+endpoint ep_BLESniffMsg accepts BLEMesg;
+endpoint ep_BLESniffMsgData accepts BLEMesgWithData;
+
+autostart actor MMCOverSysEx(ep_BLESniffRaw ep)
+{
+    process ep accepts d:BLESniffRaw.Event_1005 //{ Buffer is m:SysExMessage from BinaryDecoder<Buffer>}
+    {
+        binary b = d.Payload as binary;
+
+        BLEMesg m = BinaryDecoder<BLEMesg>(b) as BLEMesg;
+		if(m.header.packet_ID == 0x6)
+		{
+	        BLEMesgWithData m2 = BinaryDecoder<BLEMesgWithData>(b) as BLEMesgWithData;
+			var e = endpoint ep_BLESniffMsgData;
+			dispatch e accepts m2;
+		}
+		else
+		{
+			var e = endpoint ep_BLESniffMsg;
+			dispatch e accepts m;
+		}
+    }
+}
+
+message BLEMesg
+{
+	NordicBLEHeader header;
+	
+    override string ToString()
+    {
+        string ret = null;
+
+		ret = Format("{0} Counter: {1}", EnumToStringInSummary<SniffCmds>(header.packet_ID), header.packet_counter);
+
+        return(ret);
+    }
+}
+
+message BLEMesgWithData
+{
+	NordicBLEHeader header;
+
+	byte length;
+	SnifferFlags sflags;
+	byte channel;
+	byte RSSI;
+	ushort event_counter;
+	int delta_time;
+
+	binary Payload;
+
+    override string ToString()
+    {
+        string ret = null;
+
+		ret = Format("ID: {0} Counter: {1} Message with data", header.packet_ID, header.packet_counter);
+        return(ret);
+    }
+}
+
+type SnifferFlags
+{
+	byte RFU with BinaryEncoding{Width = 1};
+	byte PHY with BinaryEncoding{Width = 3};
+	byte MIC with BinaryEncoding{Width = 1};
+	byte Encypted with BinaryEncoding{Width = 1};
+	byte Direction with BinaryEncoding{Width = 1};
+	byte CRC with BinaryEncoding{Width = 1};
+} with BinaryEncodingDefaults{Endian = Endian.Big};
+
+type NordicBLEHeader
+{
+	byte header_length;
+	byte payload_length;
+	byte protocol_version;
+	ushort packet_counter;
+	SniffCmds packet_ID;
+}
+
+pattern SniffCmds = enum byte
+{
+	REQ_FOLLOW = 0x00,
+	RESP_FOLLOW = 0x01,
+	EVENT_DEVICE = 0x02,
+	REQ_SINGLE_PACKET = 0x03,
+	RESP_SINGLE_PACKET = 0x04,
+	EVENT_CONNECT = 0x05,
+	EVENT_PACKET = 0x06,
+	REQ_SCAN_CONT = 0x07,
+	RESP_SCAN_CONT = 0x08,
+	EVENT_DISCONNECT = 0x09,
+	EVENT_ERROR = 0x0A,
+	EVENT_EMPTY_DATA_PACKET = 0x0B,
+	SET_TEMPORARY_KEY = 0x0C,
+	PING_REQ = 0x0D,
+	PING_RESP = 0x0E,
+	TEST_COMMAND_ID = 0x0F,
+	TEST_RESULT_ID = 0x10,
+	UART_TEST_START = 0x11,
+	UART_DUMMY_PACKET = 0x12,
+	SWITCH_BAUD_RATE_REQ = 0x13,
+	SWITCH_BAUD_RATE_RESP = 0x14,
+	UART_OUT_START = 0x15,
+	UART_OUT_STOP = 0x16,
+	SET_ADV_CHANNEL_HOP_SEQ = 0x17,
+	GO_IDLE = 0xFE,
+};

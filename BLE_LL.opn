@@ -1,0 +1,131 @@
+protocol BLELL  with BinaryEncodingDefaults{Endian = Endian.Big};
+
+using BLESniffer;
+using Utility;
+using Diagnostics;
+
+endpoint ep_BLELL accepts BLELLMesg;
+endpoint ep_BLELLPDU accepts BLELLPDU;
+
+autostart actor BLELLOverSniffer(ep_BLESniffMsgData ep)
+{
+    process ep accepts d:BLESniffer.BLEMesgWithData //{ Buffer is m:SysExMessage from BinaryDecoder<Buffer>}
+    {
+        binary b = d.Payload as binary;
+
+        var m = BinaryDecoder<BLELLMesg>(b) ;
+		if(m != nothing)
+		{
+			var e = endpoint ep_BLELL;
+			dispatch e accepts (m as BLELLMesg);
+		}
+		else
+		{
+			var e = endpoint ep_BLELLPDU;
+			dispatch e accepts (BinaryDecoder<BLELLPDU>(b) as BLELLPDU);
+		}
+    }
+}
+
+
+message BLELLMesg
+{
+	int AccessAddress;
+	BleHeader ble_header;
+
+	override string ToString()
+    {
+        return ble_header.ToString();
+	}
+}
+
+message BLELLPDU
+{
+	int AccessAddress;
+	PDUDataHeader header;
+	ushort length;
+	binary payload  with BinaryEncoding{MaxLength = length};
+	ushort CRC;
+
+	override string ToString()
+	{
+		if(length == 0)
+		{
+			return "Empty PDU";
+		}
+		else
+		{
+			return payload.ToString();
+		}
+	}
+}
+
+type PDUDataHeader
+{
+	byte RFU with BinaryEncoding{Width = 3};
+	byte MoreData with BinaryEncoding{Width = 1};
+	byte PrevSeq with BinaryEncoding{Width = 1};
+	byte NextSeq with BinaryEncoding{Width = 1};
+	byte LLID with BinaryEncoding{Width = 2};
+}
+
+type BleHeader
+{
+	BleHeaderFlags header;
+	ushort length;
+	ReverseMAC Address;
+
+	override string ToString()
+    {
+        return header.ToString() + " " + Address.ToString();
+	}
+}
+
+type BleHeaderFlags
+{
+    bool resv with BinaryEncoding{Width = 1};
+    bool txAddr with BinaryEncoding{Width = 1};
+    bool ChannelSelectionAlgorithm with BinaryEncoding{Width = 1};
+    bool RFU with BinaryEncoding{Width = 1};
+	AdvType PDUType with BinaryEncoding{Width = 4};
+
+    override string ToString()
+    {
+        string ret = null;
+		ret = Format("{0}", EnumToStringInSummary<AdvType>(PDUType));
+        return(ret);
+    }
+}
+
+type ReverseMAC
+{
+	MacAddress Address with BinaryEncoding{Endian = Endian.Little};
+
+	override string ToString()
+    {
+        string macFormated = "";
+        int cnt = 0;
+        foreach (byte cur in Address.Octets)
+        {
+            macFormated = (Utility.DecToHexFormat(2, cur).Segment(2) as string) + macFormated;
+            if (cnt < Address.Octets.Count - 1)
+            {
+                macFormated = "-" + macFormated;
+            }
+            cnt++;
+        }
+        return macFormated;
+	}
+}
+
+pattern AdvType = enum byte
+{
+	ADV_IND = 0x0,
+	ADV_DIRECT_IND = 0x1,
+	ADV_NONCONN_IND = 0x2,
+	ADV_DISCOVER_IND = 0x6,
+	SCAN_REQ = 0x3,
+	SCAN_RSP = 0x4,
+	CONNECT_REQ = 0x5,
+};
+
