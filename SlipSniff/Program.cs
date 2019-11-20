@@ -64,15 +64,39 @@ ADV_ACCESS_ADDRESS = [0xD6, 0xBE, 0x89, 0x8E]
         [STAThread]
         static void Main(string[] args)
         {
-            // Instatiate this 
-            SerialPortProgram();
+            if(!ProcessArgs(args))
+            {
+                PrintCLIHelp();
+            }
+            else
+            {
+                // Default to COM8 because that's where my BLE sniffer is connected :)
+                SerialPortProgram(args.Length > 0 ? args[0] : "COM8");
+            }
         }
 
-        private static void SerialPortProgram()
+        private static void PrintCLIHelp()
         {
-            port = new SerialPort("COM8", 460800, Parity.None, 8, StopBits.One);
+            Console.WriteLine("Usage is\n   {0} [comport]\ncomport is a string, default is COM8", System.Diagnostics.Process.GetCurrentProcess().ProcessName);
+        }
+
+        private static bool ProcessArgs(string[] args)
+        {
+            // Since there are no args, just assume they are looking for help.
+            if(args.Length > 0 && args[0][0] == '-')
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static void SerialPortProgram(string commstring)
+        {
+            port = new SerialPort(commstring, 460800, Parity.None, 8, StopBits.One);
             port.Handshake = Handshake.None;
             port.RtsEnable = true;
+
             Console.WriteLine("Incoming Data:");
             // Attach a method to be called when there
             // is data waiting in the port's buffer 
@@ -107,6 +131,16 @@ ADV_ACCESS_ADDRESS = [0xD6, 0xBE, 0x89, 0x8E]
             totalbytes = 0;
             totalframes = 0;
             totalpackets = 0;
+        }
+
+        static void PrintCmdHelp()
+        {
+            Console.WriteLine("Commands don't require a newline.");
+            Console.WriteLine(" Q - quit");
+            Console.WriteLine(" C - Capture Packets");
+            Console.WriteLine(" S - Stop the capture");
+            Console.WriteLine(" D - Dump all the packets");
+            Console.WriteLine(" R - Report");
         }
 
         static void CmdMode()
@@ -150,6 +184,12 @@ ADV_ACCESS_ADDRESS = [0xD6, 0xBE, 0x89, 0x8E]
                         }
                         Console.WriteLine("adr size {0}", adrb.Length);
                         SendPacket(REQ_FOLLOW, adrb);
+                        break;
+                    case ConsoleKey.Oem2:
+                        if(c.KeyChar == '?')
+                        {
+                            PrintCmdHelp();
+                        }
                         break;
 
                 }
